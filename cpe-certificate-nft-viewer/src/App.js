@@ -6,19 +6,23 @@ import abi from './CPECertificateABI.json'; // Import ABI JSON
 function App() {
   const [account, setAccount] = useState(null);
   const [nfts, setNfts] = useState([]);
-  const contractAddress = 'YOUR_CPE_CERTIFICATE_CONTRACT_ADDRESS'; // Replace with your contract address
+  const contractAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'; // Replace with your contract address
 
   useEffect(() => {
     const connectMetaMask = async () => {
-      const provider = await detectEthereumProvider();
-      if (provider) {
-        await provider.request({ method: 'eth_requestAccounts' });
-        const web3 = new Web3(provider);
-        const accounts = await web3.eth.getAccounts();
-        setAccount(accounts[0]);
-      } else {
-        alert('MetaMask not found. Please install it to use this site.');
-      }
+      // const provider = await detectEthereumProvider();
+      // if (provider) {
+      //   await provider.request({ method: 'eth_requestAccounts' });
+      //   const web3 = new Web3(provider); 
+      //   const accounts = await web3.eth.getAccounts();
+      //   setAccount(accounts[0]);
+      // } else {
+      //   alert('MetaMask not found. Please install it to use this site.');
+      // }
+
+      const web3 = new Web3('http://127.0.0.1:8545'); 
+      const accounts = await web3.eth.getAccounts();
+      setAccount(accounts[0]);
     };
 
     connectMetaMask();
