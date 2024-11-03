@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CPECertificate is ERC721URIStorage, Ownable {
-
     uint256 private _tokenIdCounter;
 
     struct CertificateData {
@@ -20,6 +19,10 @@ contract CPECertificate is ERC721URIStorage, Ownable {
 
     mapping(uint256 => CertificateData) public certificateDetails;
 
+    // Manual tracking for token ownership to simulate ERC721Enumerable
+    mapping(address => uint256[]) private _ownedTokens;
+    mapping(uint256 => uint256) private _ownedTokensIndex;
+
     constructor(string memory tokenName, string memory tokenSymbol, address initialOwner) 
         ERC721(tokenName, tokenSymbol) 
         Ownable(initialOwner) 
@@ -27,18 +30,6 @@ contract CPECertificate is ERC721URIStorage, Ownable {
         _tokenIdCounter = 1; // Start token IDs at 1
     }
 
-    /**
-     * @dev Mints a new NFT with the given metadata URI and certificate data.
-     * @param to The wallet address to which the NFT will be minted.
-     * @param tokenURI The URI where the CPE certificate metadata (stored on IPFS or another off-chain storage) can be accessed.
-     * @param name The name of the certificate holder.
-     * @param certificateId The unique certificate ID assigned by the issuer.
-     * @param courseTitle The title of the CPE course completed.
-     * @param issuer The name of the organization that issued the certificate.
-     * @param dateIssued The date the certificate was issued.
-     * @param completionDate The date the course was completed.
-     * @param cpeHours The number of CPE hours awarded for completing the course.
-     */
     function mintCertificate(
         address to, 
         string memory tokenURI, 
@@ -51,10 +42,9 @@ contract CPECertificate is ERC721URIStorage, Ownable {
         uint256 cpeHours
     ) public onlyOwner {
         uint256 tokenId = _tokenIdCounter;
-        _mint(to, tokenId);
+        _safeMint(to, tokenId);
         _setTokenURI(tokenId, tokenURI);
 
-        // Store certificate details on-chain in a mapping
         certificateDetails[tokenId] = CertificateData({
             name: name,
             certificateId: certificateId,
@@ -65,14 +55,25 @@ contract CPECertificate is ERC721URIStorage, Ownable {
             cpeHours: cpeHours
         });
 
+        // Manually track ownership
+        _addTokenToOwnerEnumeration(to, tokenId);
+
         _tokenIdCounter++;
     }
 
-    /**
-     * @dev Returns the certificate details for a given token ID.
-     * @param tokenId The ID of the NFT (token).
-     */
     function getCertificateDetails(uint256 tokenId) public view returns (CertificateData memory) {
         return certificateDetails[tokenId];
+    }
+
+    // Manually add the token to the owner's list
+    function _addTokenToOwnerEnumeration(address to, uint256 tokenId) private {
+        _ownedTokensIndex[tokenId] = _ownedTokens[to].length;
+        _ownedTokens[to].push(tokenId);
+    }
+
+    // Helper function to get token by owner and index
+    function tokenOfOwnerByIndex(address owner, uint256 index) public view returns (uint256) {
+        require(index < _ownedTokens[owner].length, "Owner index out of bounds");
+        return _ownedTokens[owner][index];
     }
 }

@@ -1,50 +1,83 @@
 import React, { useState, useEffect } from 'react';
-import Web3 from 'web3';
+import { ethers, JsonRpcProvider, Contract } from 'ethers';
 import detectEthereumProvider from '@metamask/detect-provider';
-import abi from './CPECertificateABI.json'; // Import ABI JSON
+import abi from './CPECertificateABI.json'; // Import the ABI of CPECertificate
 
 function App() {
   const [account, setAccount] = useState(null);
   const [nfts, setNfts] = useState([]);
-  const contractAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'; // Replace with your contract address
+  const contractAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3'; // Replace with your locally deployed contract address
 
   useEffect(() => {
-    const connectMetaMask = async () => {
-      // const provider = await detectEthereumProvider();
-      // if (provider) {
-      //   await provider.request({ method: 'eth_requestAccounts' });
-      //   const web3 = new Web3(provider); 
-      //   const accounts = await web3.eth.getAccounts();
-      //   setAccount(accounts[0]);
-      // } else {
-      //   alert('MetaMask not found. Please install it to use this site.');
-      // }
-
-      const web3 = new Web3('http://127.0.0.1:8545'); 
-      const accounts = await web3.eth.getAccounts();
-      setAccount(accounts[0]);
+    const connectWallet = async () => {
+      const provider = await detectEthereumProvider();
+      if (provider) {
+        await provider.request({ method: 'eth_requestAccounts' });
+        const ethersProvider = new ethers.BrowserProvider(provider);
+        const signer = await ethersProvider.getSigner();
+        const userAddress = await signer.getAddress();
+        setAccount(userAddress);
+        fetchNFTs(userAddress); // Fetch NFTs after connecting
+      } else {
+        alert('MetaMask not found. Please install it to use this site.');
+      }
     };
 
-    connectMetaMask();
+    connectWallet();
   }, []);
 
-  const fetchNFTs = async () => {
-    const web3 = new Web3(window.ethereum);
-    const contract = new web3.eth.Contract(abi, contractAddress);
-
+  // Function to fetch NFTs owned by the connected wallet
+  const fetchNFTs = async (walletAddress) => {
+    const localProvider = new JsonRpcProvider("http://localhost:8545"); // Connect to Hardhat node
+    const contract = new Contract(contractAddress, abi, localProvider);
+  
     try {
-      const balance = await contract.methods.balanceOf(account).call();
       const nftData = [];
-
-      for (let i = 0; i < balance; i++) {
-        const tokenId = await contract.methods.tokenOfOwnerByIndex(account, i).call();
-        const certificateDetails = await contract.methods.getCertificateDetails(tokenId).call();
-        nftData.push({ tokenId, ...certificateDetails });
+  
+      // Get all Transfer events where the "to" address is the user's address
+      const transferEvents = await contract.queryFilter(
+        contract.filters.Transfer(null, walletAddress)
+      );
+  
+      // Extract token IDs from Transfer events
+      for (let event of transferEvents) {
+        const tokenId = event.args.tokenId;
+  
+        // Fetch NFT details for each tokenId
+        const certificateDetailsArray = await contract.getCertificateDetails(tokenId);
+        const tokenURI = await contract.tokenURI(tokenId); // Fetch token URI for the image
+  
+        // Map the array to meaningful property names
+        const certificateDetails = {
+          name: certificateDetailsArray[0],
+          certificateId: certificateDetailsArray[1],
+          courseTitle: certificateDetailsArray[2],
+          issuer: certificateDetailsArray[3],
+          dateIssued: Number(certificateDetailsArray[4]), // Convert BigInt to a regular number
+          completionDate: Number(certificateDetailsArray[5]), // Convert BigInt to a regular number
+          cpeHours: Number(certificateDetailsArray[6]),
+        };
+  
+        nftData.push({
+          tokenId: tokenId.toString(),
+          ...certificateDetails,
+          tokenURI,
+        });
       }
-
+  
       setNfts(nftData);
     } catch (error) {
       console.error("Error fetching NFTs:", error);
+    }
+  };
+  
+  
+  
+
+  // Refresh NFTs by re-calling fetchNFTs
+  const refreshNFTs = () => {
+    if (account) {
+      fetchNFTs(account);
     }
   };
 
@@ -54,24 +87,28 @@ function App() {
       {account ? (
         <>
           <p>Connected Wallet: {account}</p>
-          <button onClick={fetchNFTs}>Fetch My CPECertificate NFTs</button>
-          <div>
-            {nfts.length > 0 ? (
-              nfts.map((nft) => (
-                <div key={nft.tokenId}>
-                  <h2>Certificate ID: {nft.certificateId}</h2>
-                  <p>Name: {nft.name}</p>
-                  <p>Course Title: {nft.courseTitle}</p>
-                  <p>Issuer: {nft.issuer}</p>
-                  <p>Date Issued: {new Date(nft.dateIssued * 1000).toLocaleDateString()}</p>
-                  <p>Completion Date: {new Date(nft.completionDate * 1000).toLocaleDateString()}</p>
-                  <p>CPE Hours: {nft.cpeHours}</p>
-                </div>
-              ))
-            ) : (
-              <p>No CPECertificate NFTs found in this wallet.</p>
-            )}
-          </div>
+          <button onClick={refreshNFTs}>Refresh NFTs</button>
+          {nfts.length > 0 ? (
+            <div>
+              <h2>Your NFTs</h2>
+              <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                {nfts.map((nft, index) => (
+                  <div key={index} style={{ border: '1px solid #ccc', padding: '10px', margin: '10px', width: '200px' }}>
+                    <img src={nft.tokenURI} alt="NFT" style={{ width: '100%', height: 'auto' }} />
+                    <h3>Certificate ID: {nft.certificateId}</h3>
+                    <p><strong>Name:</strong> {nft.name}</p>
+                    <p><strong>Course Title:</strong> {nft.courseTitle}</p>
+                    <p><strong>Issuer:</strong> {nft.issuer}</p>
+                    <p><strong>Date Issued:</strong> {new Date(nft.dateIssued * 1000).toLocaleDateString()}</p>
+                    <p><strong>Completion Date:</strong> {new Date(nft.completionDate * 1000).toLocaleDateString()}</p>
+                    <p><strong>CPE Hours:</strong> {nft.cpeHours}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p>No NFTs found in this wallet.</p>
+          )}
         </>
       ) : (
         <p>Please connect your MetaMask wallet.</p>
