@@ -1,100 +1,130 @@
 import React, { useState, useEffect } from 'react';
-import { ethers, JsonRpcProvider, Contract } from 'ethers';
-import detectEthereumProvider from '@metamask/detect-provider';
+import { ethers, BrowserProvider, Contract } from 'ethers';
 import abi from './CPECertificateABI.json'; // Import the ABI of CPECertificate
+import './App.css'; // Import the CSS file for DApp styles
 
 function App() {
   const [account, setAccount] = useState(null);
   const [nfts, setNfts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const contractAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3'; // Replace with your locally deployed contract address
 
-  useEffect(() => {
-    const connectWallet = async () => {
-      const provider = await detectEthereumProvider();
-      if (provider) {
-        await provider.request({ method: 'eth_requestAccounts' });
-        const ethersProvider = new ethers.BrowserProvider(provider);
-        const signer = await ethersProvider.getSigner();
-        const userAddress = await signer.getAddress();
-        setAccount(userAddress);
-        fetchNFTs(userAddress); // Fetch NFTs after connecting
-      } else {
-        alert('MetaMask not found. Please install it to use this site.');
-      }
-    };
-
-    connectWallet();
-  }, []);
-
-  // Function to fetch NFTs owned by the connected wallet
-  const fetchNFTs = async (walletAddress) => {
-    const localProvider = new JsonRpcProvider("http://localhost:8545"); // Connect to Hardhat node
-    const contract = new Contract(contractAddress, abi, localProvider);
-  
+  const connectWallet = async () => {
     try {
+      if (!window.ethereum) {
+        alert('MetaMask not found. Please install it to use this site.');
+        return;
+      }
+
+      const provider = new BrowserProvider(window.ethereum);
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const signer = await provider.getSigner();
+      const userAddress = await signer.getAddress();
+      setAccount(userAddress);
+      fetchNFTs(userAddress, provider);
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      setError('Failed to connect wallet. Please try again.');
+    }
+  };
+
+  const disconnectWallet = () => {
+    setAccount(null);
+    setNfts([]);
+    setError(null);
+    console.log('Wallet disconnected');
+  };
+
+  const fetchNFTs = async (walletAddress, provider) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const contract = new Contract(contractAddress, abi, provider);
       const nftData = [];
-  
-      // Get all Transfer events where the "to" address is the user's address
+
       const transferEvents = await contract.queryFilter(
         contract.filters.Transfer(null, walletAddress)
       );
-  
-      // Extract token IDs from Transfer events
+
       for (let event of transferEvents) {
         const tokenId = event.args.tokenId;
-  
-        // Fetch NFT details for each tokenId
         const certificateDetailsArray = await contract.getCertificateDetails(tokenId);
-        const tokenURI = await contract.tokenURI(tokenId); // Fetch token URI for the image
-  
-        // Map the array to meaningful property names
+        const tokenURI = await contract.tokenURI(tokenId);
+
         const certificateDetails = {
           name: certificateDetailsArray[0],
           certificateId: certificateDetailsArray[1],
           courseTitle: certificateDetailsArray[2],
           issuer: certificateDetailsArray[3],
-          dateIssued: Number(certificateDetailsArray[4]), // Convert BigInt to a regular number
-          completionDate: Number(certificateDetailsArray[5]), // Convert BigInt to a regular number
+          dateIssued: Number(certificateDetailsArray[4]),
+          completionDate: Number(certificateDetailsArray[5]),
           cpeHours: Number(certificateDetailsArray[6]),
         };
-  
+
         nftData.push({
           tokenId: tokenId.toString(),
           ...certificateDetails,
           tokenURI,
         });
       }
-  
+
       setNfts(nftData);
     } catch (error) {
-      console.error("Error fetching NFTs:", error);
+      console.error('Error fetching NFTs:', error);
+      setError('Failed to load NFTs. Please try refreshing.');
+    } finally {
+      setLoading(false);
     }
   };
-  
-  
-  
 
-  // Refresh NFTs by re-calling fetchNFTs
-  const refreshNFTs = () => {
+  const refreshNFTs = async () => {
     if (account) {
-      fetchNFTs(account);
+      setLoading(true);
+      const provider = new BrowserProvider(window.ethereum);
+      await fetchNFTs(account, provider);
     }
   };
 
   return (
-    <div>
-      <h1>CPECertificate NFT Viewer</h1>
-      {account ? (
-        <>
-          <p>Connected Wallet: {account}</p>
-          <button onClick={refreshNFTs}>Refresh NFTs</button>
-          {nfts.length > 0 ? (
-            <div>
-              <h2>Your NFTs</h2>
-              <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+    <div className="App">
+      <header className="app-header">
+        <h1 className="logo">CPE Certificate Dashboard</h1>
+
+        <div className="wallet-container">
+          {account && (
+            <p className="wallet-status">🦊 Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
+          )}
+          {account ? (
+            <button className="btn btn-disconnect" onClick={disconnectWallet}>
+              Disconnect Wallet
+            </button>
+          ) : (
+            <button className="btn btn-connect" onClick={connectWallet}>
+              Connect Wallet
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main>
+        {account ? (
+          <>
+            <div className="nft-header-container">
+              <h2>Your CPE Certificates</h2>
+              <button className="btn btn-refresh" onClick={refreshNFTs} disabled={loading}>
+                {loading ? 'Refreshing...' : 'Refresh NFTs'}
+              </button>
+              {error && <p className="error-message">{error}</p>}
+            </div>
+
+            {loading ? (
+              <p className="loading">Loading NFTs...</p>
+            ) : nfts.length > 0 ? (
+              <div className="nft-container">
                 {nfts.map((nft, index) => (
-                  <div key={index} style={{ border: '1px solid #ccc', padding: '10px', margin: '10px', width: '200px' }}>
-                    <img src={nft.tokenURI} alt="NFT" style={{ width: '100%', height: 'auto' }} />
+                  <div key={index} className="nft-card">
+                    <img src={nft.tokenURI} alt="NFT" className="nft-image" />
                     <h3>Certificate ID: {nft.certificateId}</h3>
                     <p><strong>Name:</strong> {nft.name}</p>
                     <p><strong>Course Title:</strong> {nft.courseTitle}</p>
@@ -105,14 +135,14 @@ function App() {
                   </div>
                 ))}
               </div>
-            </div>
-          ) : (
-            <p>No NFTs found in this wallet.</p>
-          )}
-        </>
-      ) : (
-        <p>Please connect your MetaMask wallet.</p>
-      )}
+            ) : (
+              <p>No NFTs found in this wallet.</p>
+            )}
+          </>
+        ) : (
+          <p>Please connect your MetaMask wallet.</p>
+        )}
+      </main>
     </div>
   );
 }
