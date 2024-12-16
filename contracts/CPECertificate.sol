@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -23,21 +23,22 @@ contract CPECertificate is ERC721URIStorage, Ownable {
     mapping(address => uint256[]) private _ownedTokens;
     mapping(uint256 => uint256) private _ownedTokensIndex;
 
-    constructor(string memory tokenName, string memory tokenSymbol, address initialOwner) 
-        ERC721(tokenName, tokenSymbol) 
-        Ownable(initialOwner) 
-    {
+    constructor(
+        string memory tokenName,
+        string memory tokenSymbol,
+        address initialOwner
+    ) ERC721(tokenName, tokenSymbol) Ownable(initialOwner) {
         _tokenIdCounter = 1; // Start token IDs at 1
     }
 
     function mintCertificate(
-        address to, 
-        string memory tokenURI, 
-        string memory name, 
+        address to,
+        string memory tokenURI,
+        string memory name,
         string memory certificateId,
-        string memory courseTitle, 
-        string memory issuer, 
-        uint256 dateIssued, 
+        string memory courseTitle,
+        string memory issuer,
+        uint256 dateIssued,
         uint256 completionDate,
         uint256 cpeHours
     ) public onlyOwner {
@@ -61,19 +62,41 @@ contract CPECertificate is ERC721URIStorage, Ownable {
         _tokenIdCounter++;
     }
 
-    function getCertificateDetails(uint256 tokenId) public view returns (CertificateData memory) {
+    function getCertificateDetails(
+        uint256 tokenId
+    ) public view returns (CertificateData memory) {
         return certificateDetails[tokenId];
     }
 
-    // Manually add the token to the owner's list
+    function getAllNFTsByOwner(
+        address owner
+    ) public view returns (CertificateData[] memory) {
+        uint256 ownedTokenCount = _ownedTokens[owner].length;
+        CertificateData[] memory certificates = new CertificateData[](
+            ownedTokenCount
+        );
+
+        for (uint256 i = 0; i < ownedTokenCount; i++) {
+            uint256 tokenId = _ownedTokens[owner][i];
+            certificates[i] = certificateDetails[tokenId];
+        }
+
+        return certificates;
+    }
+
     function _addTokenToOwnerEnumeration(address to, uint256 tokenId) private {
         _ownedTokensIndex[tokenId] = _ownedTokens[to].length;
         _ownedTokens[to].push(tokenId);
     }
 
-    // Helper function to get token by owner and index
-    function tokenOfOwnerByIndex(address owner, uint256 index) public view returns (uint256) {
-        require(index < _ownedTokens[owner].length, "Owner index out of bounds");
+    function tokenOfOwnerByIndex(
+        address owner,
+        uint256 index
+    ) public view returns (uint256) {
+        require(
+            index < _ownedTokens[owner].length,
+            "Owner index out of bounds"
+        );
         return _ownedTokens[owner][index];
     }
 }

@@ -8,6 +8,8 @@ function App() {
   const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
+  const [expandedNFT, setExpandedNFT] = useState(null); // To keep track of the expanded NFT
   const contractAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3'; // Replace with your locally deployed contract address
 
   const connectWallet = async () => {
@@ -86,6 +88,18 @@ function App() {
     }
   };
 
+  const toggleViewMode = () => {
+    setViewMode(viewMode === 'card' ? 'list' : 'card');
+  };
+
+  const handleSwitchChange = (event) => {
+    setViewMode(event.target.checked ? 'list' : 'card');
+  };
+
+  const toggleNFTExpansion = (index) => {
+    setExpandedNFT(expandedNFT === index ? null : index);
+  };
+
   return (
     <div className="App">
       <header className="app-header">
@@ -115,26 +129,67 @@ function App() {
               <button className="btn btn-refresh" onClick={refreshNFTs} disabled={loading}>
                 {loading ? 'Refreshing...' : 'Refresh NFTs'}
               </button>
-              {error && <p className="error-message">{error}</p>}
+
+              <div className="view-toggle">
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={viewMode === 'list'}
+                    onChange={handleSwitchChange}
+                  />
+                  <span className="slider"></span>
+                </label>
+                <p>{viewMode === 'card' ? 'Card View' : 'List View'}</p>
+              </div>
             </div>
+
+            {error && <p className="error-message">{error}</p>}
 
             {loading ? (
               <p className="loading">Loading NFTs...</p>
             ) : nfts.length > 0 ? (
-              <div className="nft-container">
-                {nfts.map((nft, index) => (
-                  <div key={index} className="nft-card">
-                    <img src={nft.tokenURI} alt="NFT" className="nft-image" />
-                    <h3>Certificate ID: {nft.certificateId}</h3>
-                    <p><strong>Name:</strong> {nft.name}</p>
-                    <p><strong>Course Title:</strong> {nft.courseTitle}</p>
-                    <p><strong>Issuer:</strong> {nft.issuer}</p>
-                    <p><strong>Date Issued:</strong> {new Date(nft.dateIssued * 1000).toLocaleDateString()}</p>
-                    <p><strong>Completion Date:</strong> {new Date(nft.completionDate * 1000).toLocaleDateString()}</p>
-                    <p><strong>CPE Hours:</strong> {nft.cpeHours}</p>
-                  </div>
-                ))}
-              </div>
+              viewMode === 'card' ? (
+                <div className="nft-container">
+                  {nfts.map((nft, index) => (
+                    <div key={index} className="nft-card">
+                      <img src={nft.tokenURI} alt="NFT" className="nft-image" />
+                      <h3>Certificate ID: {nft.certificateId}</h3>
+                      <p><strong>Name:</strong> {nft.name}</p>
+                      <p><strong>Course Title:</strong> {nft.courseTitle}</p>
+                      <p><strong>Issuer:</strong> {nft.issuer}</p>
+                      <p><strong>Date Issued:</strong> {new Date(nft.dateIssued * 1000).toLocaleDateString()}</p>
+                      <p><strong>Completion Date:</strong> {new Date(nft.completionDate * 1000).toLocaleDateString()}</p>
+                      <p><strong>CPE Hours:</strong> {nft.cpeHours}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul className="nft-list">
+                  {nfts.map((nft, index) => (
+                    <li key={index} className="nft-list-item" onClick={() => toggleNFTExpansion(index)}>
+                      <img src={nft.tokenURI} alt="NFT" className="nft-image-left" />
+                      <div className="nft-card-content">
+                        <h3>Certificate ID: {nft.certificateId}</h3>
+                        <p><strong>Course Title:</strong> {nft.courseTitle}</p>
+                      </div>
+                      {expandedNFT === index && (
+                        <div className="nft-card-centered">
+                          <div className="nft-card">
+                            <img src={nft.tokenURI} alt="NFT" className="nft-image" />
+                            <h3>Certificate ID: {nft.certificateId}</h3>
+                            <p><strong>Name:</strong> {nft.name}</p>
+                            <p><strong>Course Title:</strong> {nft.courseTitle}</p>
+                            <p><strong>Issuer:</strong> {nft.issuer}</p>
+                            <p><strong>Date Issued:</strong> {new Date(nft.dateIssued * 1000).toLocaleDateString()}</p>
+                            <p><strong>Completion Date:</strong> {new Date(nft.completionDate * 1000).toLocaleDateString()}</p>
+                            <p><strong>CPE Hours:</strong> {nft.cpeHours}</p>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : (
               <p>No NFTs found in this wallet.</p>
             )}
