@@ -10,7 +10,7 @@ function App() {
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
   const [expandedNFT, setExpandedNFT] = useState(null); // To keep track of the expanded NFT
-  const contractAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3'; // Replace with your locally deployed contract address
+  const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
 
   const connectWallet = async () => {
     try {
