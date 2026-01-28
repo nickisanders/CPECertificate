@@ -8,13 +8,16 @@ contract CPECertificate is ERC721URIStorage, Ownable {
     uint256 private _tokenIdCounter;
 
     struct CertificateData {
-        string name;
-        string certificateId;
+        string sponsorName;
+        string participantName;
         string courseTitle;
-        string issuer;
-        uint256 dateIssued;
-        uint256 completionDate;
-        uint256 cpeHours;
+        uint256 dateCompleted;
+        string location;
+        string deliveryMethod;
+        uint256 cpeCredit;
+        string fieldOfStudy;
+        string sponsorID;
+        string stateRegistrationNumber;
     }
 
     mapping(uint256 => CertificateData) public certificateDetails;
@@ -34,27 +37,13 @@ contract CPECertificate is ERC721URIStorage, Ownable {
     function mintCertificate(
         address to,
         string memory tokenURI,
-        string memory name,
-        string memory certificateId,
-        string memory courseTitle,
-        string memory issuer,
-        uint256 dateIssued,
-        uint256 completionDate,
-        uint256 cpeHours
+        CertificateData memory certData
     ) public onlyOwner {
         uint256 tokenId = _tokenIdCounter;
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, tokenURI);
 
-        certificateDetails[tokenId] = CertificateData({
-            name: name,
-            certificateId: certificateId,
-            courseTitle: courseTitle,
-            issuer: issuer,
-            dateIssued: dateIssued,
-            completionDate: completionDate,
-            cpeHours: cpeHours
-        });
+        certificateDetails[tokenId] = certData;
 
         // Manually track ownership
         _addTokenToOwnerEnumeration(to, tokenId);
